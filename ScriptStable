@@ -103,7 +103,7 @@ echo "=== Giải nén snapshot đúng chuẩn ==="
 sudo -u $(logname) bash -c \
 "lz4 -dc /home/$(logname)/stable/snapshot.tar.lz4 | tar -x -C /home/$(logname)/stable/.stabled"
 
-# Tạo priv_validator_state.json nếu thiếu
+# Tạo priv_validator_state.json nếu snapshot không có
 if [ ! -f /home/$(logname)/stable/.stabled/data/priv_validator_state.json ]; then
     echo "Tạo priv_validator_state.json..."
     echo '{"height":"0","round":0,"step":0}' \
