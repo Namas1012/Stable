@@ -1,63 +1,85 @@
-#!/bin/bash set -e
-USER_NAME=$(logname)
+#!/bin/bash
+set -e
+
+# Xác định user thực (khi dùng sudo)
+if [ -n "$SUDO_USER" ]; then
+  USER_NAME="$SUDO_USER"
+else
+  USER_NAME=$(logname)
+fi
+
 HOME_DIR="/home/$USER_NAME"
 NODE_DIR="$HOME_DIR/stable"
 CONFIG_DIR="$NODE_DIR/.stabled/config"
-echo "=== Cài đặt Stable Node tự động ==="
 
-# Cài deps
-sudo apt update && sudo apt install -y wget tar jq lz4 ca-certificates
+echo "=== Cài đặt Stable Node tự động ==="
+echo "User: $USER_NAME"
+echo "Node dir: $NODE_DIR"
+
+# Cài dependencies
+sudo apt update
+sudo apt install -y wget tar jq lz4 ca-certificates
 
 # Tạo thư mục node
-sudo -u $USER_NAME mkdir -p $NODE_DIR
-sudo chown -R $USER_NAME:$USER_NAME $NODE_DIR
+sudo -u "$USER_NAME" mkdir -p "$NODE_DIR"
+sudo chown -R "$USER_NAME":"$USER_NAME" "$NODE_DIR"
 
-cd $NODE_DIR
+cd "$NODE_DIR"
 
-# Tải binary
+# Tải binary Stable
 wget -O stabled.tar.gz "https://stable-testnet-data.s3.us-east-1.amazonaws.com/stabled-1.1.1-linux-amd64-testnet.tar.gz"
 tar -xzf stabled.tar.gz
 
-# Copy binary
+# Copy binary ra /usr/bin
 sudo cp stabled /usr/bin/stabled
 sudo chmod +x /usr/bin/stabled
 
-# Init config
-sudo -u $USER_NAME stabled init "NamasStable" --home $NODE_DIR/.stabled --chain-id stabletestnet_2201-1
+# Khởi tạo cấu hình node
+sudo -u "$USER_NAME" stabled init "NamasStable" --home "$NODE_DIR/.stabled" --chain-id stabletestnet_2201-1
 
 # Tải genesis
-mkdir -p $HOME_DIR/downloads
-curl -sS 'http://51.77.81.3:26657/genesis' -o $HOME_DIR/downloads/genesis_raw.json
-jq '.result.genesis' $HOME_DIR/downloads/genesis_raw.json > $HOME_DIR/downloads/genesis.json
+mkdir -p "$HOME_DIR/downloads"
+curl -sS 'http://51.77.81.3:26657/genesis' -o "$HOME_DIR/downloads/genesis_raw.json"
+jq '.result.genesis' "$HOME_DIR/downloads/genesis_raw.json" > "$HOME_DIR/downloads/genesis.json"
 
-cp $CONFIG_DIR/genesis.json $CONFIG_DIR/genesis.json.bak.$(date +%s) || true
-cp $HOME_DIR/downloads/genesis.json $CONFIG_DIR/genesis.json
-sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/genesis.json
-sudo chmod 644 $CONFIG_DIR/genesis.json
+# Tạo config dir nếu chưa có
+sudo -u "$USER_NAME" mkdir -p "$CONFIG_DIR"
 
-# --- TẢI FILE CONFIG TỪ GITHUB (FULL FILE) ---
+# Backup nếu có genesis trước đó
+if [ -f "$CONFIG_DIR/genesis.json" ]; then
+  sudo -u "$USER_NAME" cp "$CONFIG_DIR/genesis.json" "$CONFIG_DIR/genesis.json.bak.$(date +%s)"
+fi
+
+# Copy genesis mới
+sudo -u "$USER_NAME" cp "$HOME_DIR/downloads/genesis.json" "$CONFIG_DIR/genesis.json"
+sudo chown "$USER_NAME":"$USER_NAME" "$CONFIG_DIR/genesis.json"
+sudo chmod 644 "$CONFIG_DIR/genesis.json"
+
+# --- TẢI FILE CONFIG TỪ GITHUB ---
 echo "Tải app.toml từ GitHub..."
-wget -O $CONFIG_DIR/app.toml \
-https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/app.toml
+wget -q -O "$CONFIG_DIR/app.toml" "https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/app.toml"
 echo "Tải config.toml từ GitHub..."
-wget -O $CONFIG_DIR/config.toml \
-https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/config.toml
-sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/*.toml
+wget -q -O "$CONFIG_DIR/config.toml" "https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/config.toml"
+
+sudo chown "$USER_NAME":"$USER_NAME" "$CONFIG_DIR/app.toml" "$CONFIG_DIR/config.toml"
 
 # --- RESTORE SNAPSHOT ---
 echo "Tải snapshot..."
-wget -O $NODE_DIR/snapshot.tar.lz4 "https://stable-snapshot.s3.eu-central-1.amazonaws.com/snapshot.tar.lz4"
-sudo systemctl stop stabled 2>/dev/null || true
-sudo -u $USER_NAME rm -rf $NODE_DIR/.stabled/data
-sudo -u $USER_NAME mkdir -p $NODE_DIR/.stabled/data
-echo "Giải nén snapshot..."
-sudo -u $USER_NAME bash -c "lz4 -dc $NODE_DIR/snapshot.tar.lz4 | tar -x -C $NODE_DIR/.stabled/data"
-sudo chown -R $USER_NAME:$USER_NAME $NODE_DIR
+wget -O "$NODE_DIR/snapshot.tar.lz4" "https://stable-snapshot.s3.eu-central-1.amazonaws.com/snapshot.tar.lz4" || { echo "Snapshot download failed"; exit 1; }
 
-# Mở port
+sudo systemctl stop stabled 2>/dev/null || true
+sudo -u "$USER_NAME" rm -rf "$NODE_DIR/.stabled/data"
+sudo -u "$USER_NAME" mkdir -p "$NODE_DIR/.stabled/data"
+
+echo "Giải nén snapshot..."
+sudo -u "$USER_NAME" bash -c "lz4 -dc $NODE_DIR/snapshot.tar.lz4 | tar -x -C $NODE_DIR/.stabled/data"
+
+sudo chown -R "$USER_NAME":"$USER_NAME" "$NODE_DIR"
+
+# Mở port P2P
 ufw allow 26656/tcp || true
 
-# Systemd service
+# Tạo service systemd
 sudo tee /etc/systemd/system/stabled.service > /dev/null <<EOF
 [Unit]
 Description=Stable Daemon Service
@@ -82,4 +104,5 @@ sudo systemctl daemon-reload
 sudo systemctl enable stabled
 sudo systemctl start stabled
 
-echo "=== Cài đặt hoàn tất! Xem log bằng: sudo journalctl -u stabled -f"
+echo "=== Cài đặt hoàn tất! ==="
+echo "Xem log: sudo journalctl -u stabled -f"
