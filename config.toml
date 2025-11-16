@@ -1,0 +1,44 @@
+[p2p]
+moniker = "NamasStable"
+identity = ""
+seeds = "22b1f1040cc4462fb851a77b23902650125e7f4d@37.187.147.23:26656"
+persistent_peers = "019aa7fc68223c8b13a8966621dc70d3817d2570@185.232.70.33:26656,d726ae605a468b77394e04d82ce7b9133b87e0e9@149.102.134.42:26656,48514b354e0163dd439e71a92fa91eae713c3eee@194.163.136.85:26656,8caf1b8d734d3787619989ab75bb668913bf5e53@84.46.240.92:26656,1161837fa4d97293a387ee351200a1021c09e218@155.133.23.172:26656,078e122f1a16e3a7f4f08c942fb6d80ff13377d6@184.174.36.61:26656,21e969c275e5fd111fe9df20d1e10a357b64de39@51.77.81.3:26656,d990e518379226990e2fd0b4787e22bcbeb5f6e5@38.242.249.254:26656,9723553ab6ec3869bbfacc12f64321e3a056d1d5@109.199.100.113:26656,b74b5f566b37e6af6c3bd0aa8111ff50b256fcc1@194.163.170.176:26656,d21956e0fa1b723cd8217146f21b4840bf10c200@207.180.230.81:26656"
+external_address = ""
+addr_book_strict = false
+max_num_inbound_peers = 80
+max_num_outbound_peers = 50
+allow_duplicate_ip = false
+handshake_timeout = "20s"
+dial_timeout = "3s"
+pex = true
+filter_peers = false
+
+[rpc]
+laddr = "tcp://0.0.0.0:26657"
+grpc_laddr = ""
+unsafe = false
+max_open_connections = 900
+
+[mempool]
+type = ""
+recheck = true
+broadcast = true
+size = 5000
+max_txs_bytes = 1073741824
+cache_size = 10000
+
+[statesync]
+enable = false
+trust_height = 0
+trust_hash = ""
+trust_period = "168h0m0s"
+rpc_servers = ""
+
+[indexer]
+indexer = "null"
+
+[instrumentation]
+prometheus = false
+prometheus_listen_addr = ":26660"
+max_open_connections = 3
+namespace = "cometbft"
