@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Xác định user thực khi chạy bằng sudo
+# ===== XÁC ĐỊNH USER THỰC =====
 if [ -n "$SUDO_USER" ]; then
   USER_NAME="$SUDO_USER"
 else
@@ -15,8 +15,19 @@ CONFIG_DIR="$NODE_DIR/.stabled/config"
 echo "=== Cài đặt Stable Node tự động ==="
 echo "User: $USER_NAME"
 echo "Node dir: $NODE_DIR"
+echo ""
 
-# Cài dependencies
+# ===== NHẬP TÊN NODE (MONIKER) =====
+read -p "Nhập tên node (moniker) bạn muốn đặt [default: NamasStable]: " MONIKER
+
+if [ -z "$MONIKER" ]; then
+    MONIKER="NamasStable"
+fi
+
+echo "Tên node sẽ sử dụng: $MONIKER"
+echo ""
+
+# ===== CÀI DEPENDENCIES =====
 sudo apt update
 sudo apt install -y wget tar jq lz4 ca-certificates
 
@@ -26,19 +37,17 @@ sudo chown -R "$USER_NAME":"$USER_NAME" "$NODE_DIR"
 
 cd "$NODE_DIR"
 
-# Tải binary Stable
+# ===== TẢI BINARY STABLED =====
 wget -O stabled.tar.gz "https://stable-testnet-data.s3.us-east-1.amazonaws.com/stabled-1.1.1-linux-amd64-testnet.tar.gz"
 tar -xzf stabled.tar.gz
 
-# Copy binary ra /usr/bin
 sudo cp stabled /usr/bin/stabled
 sudo chmod +x /usr/bin/stabled
 
-# Khởi tạo cấu hình node
-sudo -u "$USER_NAME" stabled init "NamasStable" --home "$NODE_DIR/.stabled" --chain-id stabletestnet_2201-1
+# ===== INIT NODE =====
+sudo -u "$USER_NAME" stabled init "$MONIKER" --home "$NODE_DIR/.stabled" --chain-id stabletestnet_2201-1
 
-# ======== GENESIS (DÙNG GITHUB – ỔN ĐỊNH NHẤT) ========
-
+# ===== TẢI GENESIS TỪ GITHUB (ỔN ĐỊNH) =====
 echo "=== Tải genesis từ GitHub ==="
 
 sudo -u "$USER_NAME" mkdir -p "$HOME_DIR/downloads"
@@ -46,41 +55,42 @@ sudo -u "$USER_NAME" mkdir -p "$HOME_DIR/downloads"
 wget -O "$HOME_DIR/downloads/genesis.json" \
 https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/genesis.json
 
-# Kiểm tra genesis tải thành công
 if [ ! -s "$HOME_DIR/downloads/genesis.json" ]; then
     echo "LỖI: Không tải được genesis.json từ GitHub!"
     exit 1
 fi
 
-# Tạo thư mục config nếu chưa có
 sudo -u "$USER_NAME" mkdir -p "$CONFIG_DIR"
 
-# Backup genesis cũ nếu tồn tại
+# Backup nếu tồn tại
 if [ -f "$CONFIG_DIR/genesis.json" ]; then
     sudo -u "$USER_NAME" cp "$CONFIG_DIR/genesis.json" "$CONFIG_DIR/genesis.json.bak.$(date +%s)"
 fi
 
-# Copy genesis mới
 sudo -u "$USER_NAME" cp "$HOME_DIR/downloads/genesis.json" "$CONFIG_DIR/genesis.json"
 sudo chown "$USER_NAME":"$USER_NAME" "$CONFIG_DIR/genesis.json"
 sudo chmod 644 "$CONFIG_DIR/genesis.json"
 
-echo "Genesis tải và cài đặt thành công!"
-# ======================================================
+echo "Genesis tải và cài thành công!"
+echo ""
 
-# TẢI FILE CONFIG CHÍNH THỨC TỪ GITHUB
-echo "Tải app.toml từ GitHub..."
+# ===== TẢI app.toml & config.toml =====
+echo "=== Tải file cấu hình từ GitHub ==="
+
 wget -q -O "$CONFIG_DIR/app.toml" \
 https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/app.toml
 
-echo "Tải config.toml từ GitHub..."
 wget -q -O "$CONFIG_DIR/config.toml" \
 https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/config.toml
 
 sudo chown "$USER_NAME":"$USER_NAME" "$CONFIG_DIR/app.toml" "$CONFIG_DIR/config.toml"
 
-# RESTORE SNAPSHOT
-echo "Tải snapshot..."
+echo "Cấu hình app.toml & config.toml đã được cập nhật!"
+echo ""
+
+# ===== RESTORE SNAPSHOT =====
+echo "=== Tải snapshot ==="
+
 wget -O "$NODE_DIR/snapshot.tar.lz4" \
 "https://stable-snapshot.s3.eu-central-1.amazonaws.com/snapshot.tar.lz4" || { echo "Snapshot download failed"; exit 1; }
 
@@ -88,15 +98,17 @@ sudo systemctl stop stabled 2>/dev/null || true
 sudo -u "$USER_NAME" rm -rf "$NODE_DIR/.stabled/data"
 sudo -u "$USER_NAME" mkdir -p "$NODE_DIR/.stabled/data"
 
-echo "Giải nén snapshot..."
+echo "=== Giải nén snapshot ==="
 sudo -u "$USER_NAME" bash -c "lz4 -dc $NODE_DIR/snapshot.tar.lz4 | tar -x -C $NODE_DIR/.stabled/data"
 
 sudo chown -R "$USER_NAME":"$USER_NAME" "$NODE_DIR"
 
-# Mở port P2P
+# ===== MỞ PORT P2P =====
 ufw allow 26656/tcp 2>/dev/null || true
 
-# Tạo service systemd
+# ===== TẠO SERVICE SYSTEMD =====
+echo "=== Tạo service stabled ==="
+
 sudo tee /etc/systemd/system/stabled.service > /dev/null <<EOF
 [Unit]
 Description=Stable Daemon Service
@@ -121,5 +133,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable stabled
 sudo systemctl start stabled
 
-echo "=== Cài đặt hoàn tất! ==="
-echo "Xem log realtime: sudo journalctl -u stabled -f"
+echo ""
+echo "=== CÀI ĐẶT HOÀN TẤT! ==="
+echo "Xem log realtime:"
+echo "  sudo journalctl -u stabled -f"
+echo ""
