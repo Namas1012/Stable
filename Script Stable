@@ -1,0 +1,95 @@
+#!/bin/bash
+set -e
+
+USER_NAME=$(logname)
+HOME_DIR="/home/$USER_NAME"
+NODE_DIR="$HOME_DIR/stable"
+CONFIG_DIR="$NODE_DIR/.stabled/config"
+
+echo "=== Cài đặt Stable Node tự động ==="
+
+# Cài deps
+sudo apt update && sudo apt install -y wget tar jq lz4 ca-certificates
+
+# Tạo thư mục node
+sudo -u $USER_NAME mkdir -p $NODE_DIR
+sudo chown -R $USER_NAME:$USER_NAME $NODE_DIR
+
+cd $NODE_DIR
+
+# Tải binary
+wget -O stabled.tar.gz "https://stable-testnet-data.s3.us-east-1.amazonaws.com/stabled-1.1.1-linux-amd64-testnet.tar.gz"
+tar -xzf stabled.tar.gz
+
+# Copy binary
+sudo cp stabled /usr/bin/stabled
+sudo chmod +x /usr/bin/stabled
+
+# Init config
+sudo -u $USER_NAME stabled init "NamasStable" --home $NODE_DIR/.stabled --chain-id stabletestnet_2201-1
+
+# Tải genesis
+mkdir -p $HOME_DIR/downloads
+curl -sS 'http://51.77.81.3:26657/genesis' -o $HOME_DIR/downloads/genesis_raw.json
+jq '.result.genesis' $HOME_DIR/downloads/genesis_raw.json > $HOME_DIR/downloads/genesis.json
+
+cp $CONFIG_DIR/genesis.json $CONFIG_DIR/genesis.json.bak.$(date +%s) || true
+cp $HOME_DIR/downloads/genesis.json $CONFIG_DIR/genesis.json
+sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/genesis.json
+sudo chmod 644 $CONFIG_DIR/genesis.json
+
+# --- TẢI FILE CONFIG TỪ GITHUB (FULL FILE) ---
+
+echo "Tải app.toml từ GitHub..."
+wget -O $CONFIG_DIR/app.toml \
+https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/app.toml
+
+echo "Tải config.toml từ GitHub..."
+wget -O $CONFIG_DIR/config.toml \
+https://raw.githubusercontent.com/Namas1012/Stable/refs/heads/main/config.toml
+
+sudo chown $USER_NAME:$USER_NAME $CONFIG_DIR/*.toml
+
+# --- RESTORE SNAPSHOT ---
+echo "Tải snapshot..."
+wget -O $NODE_DIR/snapshot.tar.lz4 "https://stable-snapshot.s3.eu-central-1.amazonaws.com/snapshot.tar.lz4"
+
+sudo systemctl stop stabled 2>/dev/null || true
+sudo -u $USER_NAME rm -rf $NODE_DIR/.stabled/data
+sudo -u $USER_NAME mkdir -p $NODE_DIR/.stabled/data
+
+echo "Giải nén snapshot..."
+sudo -u $USER_NAME bash -c "lz4 -dc $NODE_DIR/snapshot.tar.lz4 | tar -x -C $NODE_DIR/.stabled/data"
+
+sudo chown -R $USER_NAME:$USER_NAME $NODE_DIR
+
+# Mở port
+ufw allow 26656/tcp || true
+
+# Systemd service
+sudo tee /etc/systemd/system/stabled.service > /dev/null <<EOF
+[Unit]
+Description=Stable Daemon Service
+After=network-online.target
+
+[Service]
+User=$USER_NAME
+WorkingDirectory=$NODE_DIR
+ExecStart=/usr/bin/stabled start --home $NODE_DIR/.stabled --chain-id stabletestnet_2201-1
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=stabled
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable stabled
+sudo systemctl start stabled
+
+echo "=== HOÀN TẤT! ==="
+echo "Xem log: sudo journalctl -u stabled -f"
