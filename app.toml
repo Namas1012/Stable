@@ -1,0 +1,139 @@
+# This is a TOML config file.
+# For more information, see https://github.com/toml-lang/toml
+
+###############################################################################
+###                           Base Configuration                            ###
+###############################################################################
+
+minimum-gas-prices = "0ausdt"
+query-gas-limit = "0"
+
+pruning = "custom"
+pruning-keep-recent = "1000"
+pruning-interval = "50"
+
+halt-height = 0
+halt-time = 0
+min-retain-blocks = 0
+
+inter-block-cache = true
+index-events = []
+iavl-cache-size = 781250
+iavl-disable-fastnode = false
+app-db-backend = ""
+
+###############################################################################
+###                         Telemetry Configuration                         ###
+###############################################################################
+
+[telemetry]
+service-name = ""
+enabled = false
+enable-hostname = false
+enable-hostname-label = false
+enable-service-label = false
+prometheus-retention-time = 0
+global-labels = []
+metrics-sink = ""
+statsd-addr = ""
+datadog-hostname = ""
+
+###############################################################################
+###                           API Configuration                             ###
+###############################################################################
+
+[api]
+enable = false
+swagger = false
+address = "tcp://localhost:1317"
+max-open-connections = 1000
+rpc-read-timeout = 10
+rpc-write-timeout = 0
+rpc-max-body-bytes = 1000000
+enabled-unsafe-cors = false
+
+###############################################################################
+###                           gRPC Configuration                            ###
+###############################################################################
+
+[grpc]
+enable = true
+address = "localhost:9090"
+max-recv-msg-size = "10485760"
+max-send-msg-size = "2147483647"
+
+###############################################################################
+###                        gRPC Web Configuration                           ###
+###############################################################################
+
+[grpc-web]
+enable = true
+
+###############################################################################
+###                        State Sync Configuration                         ###
+###############################################################################
+
+[state-sync]
+snapshot-interval = 1000
+snapshot-keep-recent = 2
+
+###############################################################################
+###                              State Streaming                            ###
+###############################################################################
+
+[streaming]
+
+[streaming.abci]
+keys = []
+plugin = ""
+stop-node-on-err = true
+
+###############################################################################
+###                         Mempool                                         ###
+###############################################################################
+
+[mempool]
+max-txs = -1
+
+###############################################################################
+###                             EVM Configuration                           ###
+###############################################################################
+
+[evm]
+tracer = ""
+max-tx-gas-wanted = 0
+cache-preimage = false
+evm-chain-id = 2201
+
+###############################################################################
+###                           JSON RPC Configuration                        ###
+###############################################################################
+
+[json-rpc]
+enable = false
+address = "127.0.0.1:8545"
+ws-address = "127.0.0.1:8546"
+api = "eth,net,web3,debug"
+gas-cap = 25000000
+allow-insecure-unlock = true
+evm-timeout = "5s"
+txfee-cap = 1
+filter-cap = 200
+feehistory-cap = 100
+logs-cap = 10000
+block-range-cap = 10000
+http-timeout = "30s"
+http-idle-timeout = "2m0s"
+allow-unprotected-txs = true
+max-open-connections = 0
+enable-indexer = false
+metrics-address = "127.0.0.1:6065"
+fix-revert-gas-refund-height = 0
+
+###############################################################################
+###                             TLS Configuration                           ###
+###############################################################################
+
+[tls]
+certificate-path = ""
+key-path = ""
