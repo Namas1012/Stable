@@ -1,4 +1,3 @@
-# Stable
 # cài deps (root)
 sudo apt update && sudo apt install -y wget tar jq lz4 ca-certificates
 
